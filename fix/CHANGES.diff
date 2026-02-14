@@ -1,0 +1,37 @@
+diff --git a/programs/clobby/src/instructions/place_order.rs b/programs/clobby/src/instructions/place_order.rs
+index abc1234..def5678 100644
+--- a/programs/clobby/src/instructions/place_order.rs
++++ b/programs/clobby/src/instructions/place_order.rs
+@@ -7,6 +7,7 @@ const MAX_ORDERS_TO_MATCH:usize = 5;
+ struct EditOrders {
+     pub order_id : u64,
+     pub base_amount_to_set: u64,
++    pub base_amount_matched: u64,  // FIX: Track actual matched amount for events
+     pub total_quote_amount: u64
+ }
+ 
+@@ -88,7 +89,12 @@ pub fn place_order(ctx:Context<PlaceOrder>, args:PlaceOrderArgs) -> Result<()> {
+         }
+         else{
+             let base_amount_to_set = opposing_order.base_amount - base_amount_eaten;
+-            orders_to_edit.push(EditOrders { order_id: opposing_order.order_id, base_amount_to_set,  total_quote_amount});
++            // FIX: Store base_amount_eaten to correctly record matched amount in Fill event
++            orders_to_edit.push(EditOrders { 
++                order_id: opposing_order.order_id, 
++                base_amount_to_set,
++                base_amount_matched: base_amount_eaten,  // FIX: This is what was actually matched
++                total_quote_amount
++            });
+         }
+ 
+         match taker_side.get_side_in_enum()? {
+@@ -136,7 +142,8 @@ pub fn place_order(ctx:Context<PlaceOrder>, args:PlaceOrderArgs) -> Result<()> {
+             partial_matched_order.base_amount = order.base_amount_to_set;
+ 
+             market_events.add_event(EventParams{
+-                base_amount: order.base_amount_to_set,
++                // FIX: Use base_amount_matched (actual filled) instead of base_amount_to_set (remaining)
++                base_amount: order.base_amount_matched,
+                 order_id: partial_matched_order.order_id,
+                 maker: partial_matched_order.order_authority,
+                 quote_amount: order.total_quote_amount,
